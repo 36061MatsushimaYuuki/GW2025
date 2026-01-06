@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using StoryDesignSupportWebApp;
+using StoryDesignSupportWebApp.Client;
 using StoryDesignSupportWebApp.Client.Pages;
 using StoryDesignSupportWebApp.Components;
 using StoryDesignSupportWebApp.Components.Account;
@@ -36,6 +38,8 @@ builder.Services.AddIdentityCore<ApplicationUser>(options => options.SignIn.Requ
     .AddDefaultTokenProviders();
 
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
+
+builder.Services.AddScoped<TopRowStateService>();
 
 var app = builder.Build();
 
