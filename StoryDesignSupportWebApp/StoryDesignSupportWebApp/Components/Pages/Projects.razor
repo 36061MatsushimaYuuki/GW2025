@@ -14,42 +14,623 @@
 
 <PageTitle>Projects</PageTitle>
 
-<h3>My Projects</h3>
+<style>
+    .projects-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
 
-@if (_projects == null) {
-    <p>Loading...</p>
-} else if (!_projects.Any()) {
-    <p>No projects found.</p>
-} else {
-    <ul>
-        @foreach (var p in _projects) {
-            <li>
-                @p.Name
-                <button @onclick="() => Edit(p.Id)">Edit</button>
-                <button @onclick="() => Delete(p.Id)">Delete</button>
-            </li>
+    .header-section {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+
+    .search-filter-row {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 0;
+        flex-wrap: wrap;
+    }
+
+    .search-box {
+        flex: 1;
+        min-width: 250px;
+    }
+
+        .search-box input {
+            width: 100%;
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
         }
-    </ul>
-}
 
-<h4>Add New Project</h4>
-<input @bind="newProjectName" placeholder="Project name" />
-<button @onclick="AddProject">Add</button>
+    .filter-box {
+        min-width: 200px;
+    }
+
+        .filter-box select {
+            width: 100%;
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            background: white;
+        }
+
+    .add-button {
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        transition: background 0.3s;
+    }
+
+        .add-button:hover {
+            background: #0056b3;
+        }
+
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        justify-content: center;
+        align-items: center;
+    }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+    .modal-content {
+        background: white;
+        border-radius: 8px;
+        padding: 30px;
+        max-width: 600px;
+        width: 90%;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #eee;
+    }
+
+        .modal-header h3 {
+            margin: 0;
+            color: #333;
+        }
+
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 28px;
+        cursor: pointer;
+        color: #666;
+        padding: 0;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+        .modal-close:hover {
+            color: #333;
+        }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .form-group input[type="text"],
+        .form-group textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+            font-family: inherit;
+        }
+
+    .genre-input-container {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+        .genre-input-container input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+    .genre-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+    }
+
+    .genre-tag-editable {
+        background: #e9ecef;
+        color: #495057;
+        padding: 6px 12px;
+        border-radius: 16px;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+        .genre-tag-editable button {
+            background: none;
+            border: none;
+            color: #dc3545;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+            .genre-tag-editable button:hover {
+                color: #a71d2a;
+            }
+
+    .genre-count {
+        font-size: 12px;
+        color: #666;
+        margin-top: 5px;
+    }
+
+    .error-message {
+        background: #f8d7da;
+        color: #721c24;
+        padding: 12px 16px;
+        border-radius: 4px;
+        margin-bottom: 20px;
+        border: 1px solid #f5c6cb;
+        font-size: 14px;
+    }
+
+        .error-message ul {
+            margin: 8px 0 0 0;
+            padding-left: 20px;
+        }
+
+        .error-message li {
+            margin-bottom: 4px;
+        }
+
+    .char-count {
+        font-size: 12px;
+        color: #666;
+        text-align: right;
+        margin-top: 4px;
+    }
+
+        .char-count.error {
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+    .modal-actions {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px solid #eee;
+    }
+
+        .modal-actions button {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+    .save-btn {
+        background: #28a745;
+        color: white;
+    }
+
+        .save-btn:hover {
+            background: #218838;
+        }
+
+    .cancel-btn {
+        background: #6c757d;
+        color: white;
+    }
+
+        .cancel-btn:hover {
+            background: #5a6268;
+        }
+
+    .projects-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 20px;
+    }
+
+    .project-card {
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: transform 0.2s, box-shadow 0.2s;
+        height: 280px;
+        display: flex;
+        flex-direction: column;
+        cursor: pointer;
+        position: relative;
+    }
+
+        .project-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+    .project-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        margin-bottom: 12px;
+    }
+
+    .project-name {
+        font-size: 18px;
+        font-weight: bold;
+        color: #333;
+        margin: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        flex: 1;
+        margin-right: 10px;
+    }
+
+    .project-actions {
+        display: flex;
+        gap: 5px;
+    }
+
+        .project-actions button {
+            padding: 5px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.3s;
+            z-index: 10;
+        }
+
+    .edit-btn {
+        background: #17a2b8;
+        color: white;
+    }
+
+        .edit-btn:hover {
+            background: #138496;
+        }
+
+    .delete-btn {
+        background: #dc3545;
+        color: white;
+    }
+
+        .delete-btn:hover {
+            background: #c82333;
+        }
+
+    .project-overview {
+        color: #666;
+        font-size: 14px;
+        margin-bottom: 12px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 4;
+        -webkit-box-orient: vertical;
+        line-height: 1.5;
+        height: 84px;
+        flex-shrink: 0;
+    }
+
+    .project-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+
+    .project-genres-compact {
+        font-size: 12px;
+        color: #666;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        flex: 1;
+    }
+
+        .project-genres-compact span {
+            color: #007bff;
+        }
+
+    .project-dates {
+        padding-top: 12px;
+        border-top: 1px solid #eee;
+        font-size: 12px;
+        color: #666;
+    }
+
+        .project-dates div {
+            margin-bottom: 4px;
+        }
+
+    .no-projects {
+        text-align: center;
+        padding: 60px 20px;
+        color: #666;
+        font-size: 16px;
+    }
+
+    .loading {
+        text-align: center;
+        padding: 60px 20px;
+        color: #666;
+        font-size: 16px;
+    }
+</style>
+
+<div class="projects-container">
+    <div class="header-section">
+        <h3 style="margin-top: 0;">My Projects</h3>
+
+        <div class="search-filter-row">
+            <div class="search-box">
+                <input type="text"
+                       @bind="searchText"
+                       @bind:event="oninput"
+                       placeholder="プロジェクトを検索..." />
+            </div>
+
+            <div class="filter-box">
+                <select @bind="selectedGenreFilter">
+                    <option value="">すべてのジャンル</option>
+                    @foreach (var genre in GetAllGenres()) {
+                        <option value="@genre">@genre</option>
+                    }
+                </select>
+            </div>
+
+            <button class="add-button" @onclick="OpenAddModal">
+                <span style="font-size: 20px;">+</span>
+                <span>新規プロジェクト</span>
+            </button>
+        </div>
+    </div>
+
+    @if (_projects == null) {
+        <div class="loading">
+            読み込み中...
+        </div>
+    } else if (!FilteredProjects.Any()) {
+        <div class="no-projects">
+            @if (!string.IsNullOrWhiteSpace(searchText) || !string.IsNullOrWhiteSpace(selectedGenreFilter)) {
+                <p>検索条件に一致するプロジェクトが見つかりません。</p>
+            } else {
+                <p>プロジェクトがありません。新しいプロジェクトを作成してください。</p>
+            }
+        </div>
+    } else {
+        <div class="projects-grid">
+            @foreach (var p in FilteredProjects) {
+                <div class="project-card" @onclick="() => NavigateToEdit(p.Id)">
+                    <div class="project-header">
+                        <h4 class="project-name" title="@p.Name">@p.Name</h4>
+                        <div class="project-actions">
+                            <button class="edit-btn" @onclick:stopPropagation="true" @onclick="() => OpenEditModal(p)">編集</button>
+                            <button class="delete-btn" @onclick:stopPropagation="true" @onclick="() => Delete(p.Id)">削除</button>
+                        </div>
+                    </div>
+
+                    <div class="project-overview">
+                        @(string.IsNullOrWhiteSpace(p.Overview) ? "概要なし" : p.Overview)
+                    </div>
+
+                    <div class="project-meta">
+                        <div class="project-genres-compact">
+                            @if (p.Genre != null && p.Genre.Any(g => !string.IsNullOrWhiteSpace(g))) {
+                                <span>@string.Join(", ", p.Genre.Where(g => !string.IsNullOrWhiteSpace(g)))</span>
+                            } else {
+                                <span style="color: #999;">ジャンルなし</span>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="project-dates">
+                        <div>作成: @p.CreatedAt.ToLocalTime().ToString("yyyy/MM/dd HH:mm")</div>
+                        <div>更新: @(p.UpdatedAt?.ToLocalTime().ToString("yyyy/MM/dd HH:mm") ?? "未更新")</div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<!-- 新規追加/編集モーダル -->
+<div class="modal-overlay @(showModal ? "show" : "")" @onclick="CloseModalOnOverlay">
+    <div class="modal-content" @onclick:stopPropagation="true">
+        <div class="modal-header">
+            <h3>@(isEditMode ? "プロジェクトを編集" : "新規プロジェクト")</h3>
+            <button class="modal-close" @onclick="CloseModal">&times;</button>
+        </div>
+
+        @if (validationErrors.Any()) {
+            <div class="error-message">
+                <strong>エラー:</strong>
+                <ul>
+                    @foreach (var error in validationErrors) {
+                        <li>@error</li>
+                    }
+                </ul>
+            </div>
+        }
+
+        <div class="form-group">
+            <label>プロジェクト名 *</label>
+            <input type="text"
+                   @bind="modalProjectName"
+                   @bind:event="oninput"
+                   placeholder="プロジェクト名を入力"
+                   maxlength="100" />
+            <div class="char-count @(modalProjectName.Length > 100 ? "error" : "")">
+                @modalProjectName.Length / 100
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>概要</label>
+            <textarea @bind="modalProjectOverview"
+                      @bind:event="oninput"
+                      placeholder="プロジェクトの概要を入力"
+                      maxlength="200"></textarea>
+            <div class="char-count @(modalProjectOverview.Length > 200 ? "error" : "")">
+                @modalProjectOverview.Length / 200
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>ジャンル (最大5個)</label>
+            <div class="genre-input-container">
+                <input type="text"
+                       @bind="genreInput"
+                       @bind:event="oninput"
+                       @onkeydown="HandleGenreInput"
+                       placeholder="ジャンルを入力してスペースまたはEnterキーで追加"
+                       maxlength="25"
+                       disabled="@(modalGenres.Count >= Project.MaxGenreSize)" />
+            </div>
+            <div class="char-count @(genreInput.Length > 25 ? "error" : "")">
+                @genreInput.Length / 25
+            </div>
+            <div class="genre-count">@modalGenres.Count / @Project.MaxGenreSize</div>
+            @if (modalGenres.Any()) {
+                <div class="genre-tags">
+                    @foreach (var genre in modalGenres) {
+                        <div class="genre-tag-editable">
+                            <span>@genre</span>
+                            <button @onclick="() => RemoveGenre(genre)">×</button>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="modal-actions">
+            <button class="cancel-btn" @onclick="CloseModal">キャンセル</button>
+            <button class="save-btn" @onclick="SaveProject">保存</button>
+        </div>
+    </div>
+</div>
 
 @code {
     private List<Project>? _projects;
-    private string newProjectName = "";
-
+    private string searchText = "";
+    private string selectedGenreFilter = "";
     private string? userId;
 
-    protected override async Task OnInitializedAsync() {
+    // モーダル関連
+    private bool showModal = false;
+    private bool isEditMode = false;
+    private int? editingProjectId = null;
+    private string modalProjectName = "";
+    private string modalProjectOverview = "";
+    private List<string> modalGenres = new();
+    private string genreInput = "";
+    private List<string> validationErrors = new();
 
+    private IEnumerable<Project> FilteredProjects {
+        get {
+            if (_projects == null) return Enumerable.Empty<Project>();
+
+            var filtered = _projects.AsEnumerable();
+
+            if (!string.IsNullOrWhiteSpace(searchText)) {
+                filtered = filtered.Where(p =>
+                    p.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                    (p.Overview != null && p.Overview.Contains(searchText, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            if (!string.IsNullOrWhiteSpace(selectedGenreFilter)) {
+                filtered = filtered.Where(p =>
+                    p.Genre != null && p.Genre.Contains(selectedGenreFilter));
+            }
+
+            return filtered;
+        }
+    }
+
+    private IEnumerable<string> GetAllGenres() {
+        if (_projects == null) return Enumerable.Empty<string>();
+
+        return _projects
+            .Where(p => p.Genre != null)
+            .SelectMany(p => p.Genre!)
+            .Where(g => !string.IsNullOrWhiteSpace(g))
+            .Distinct()
+            .OrderBy(g => g);
+    }
+
+    protected override async Task OnInitializedAsync() {
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         var user = authState.User;
-
         var appUser = await UserManager.GetUserAsync(user);
-
-        userId = appUser.Id;
+        userId = appUser?.Id;
 
         _projects = await Db.Projects
             .Where(x => x.UserId == userId)
@@ -57,24 +638,155 @@
             .ToListAsync();
     }
 
-    private async Task AddProject() {
-        if (string.IsNullOrWhiteSpace(newProjectName)) return;
-
-        var project = new Project() {
-            Name = newProjectName,
-            UserId = userId!
-        };
-
-        Db.Projects.Add(project);
-        await Db.SaveChangesAsync();
-
-        _projects!.Add(project);
-        newProjectName = "";
+    private void OpenAddModal() {
+        isEditMode = false;
+        editingProjectId = null;
+        modalProjectName = "";
+        modalProjectOverview = "";
+        modalGenres.Clear();
+        genreInput = "";
+        validationErrors.Clear();
+        showModal = true;
     }
 
-    private void Edit(int id) {
-        // 編集ページへリンク
-        // すでに作った /projects/edit/{id} を想定
+    private void OpenEditModal(Project project) {
+        isEditMode = true;
+        editingProjectId = project.Id;
+        modalProjectName = project.Name;
+        modalProjectOverview = project.Overview ?? "";
+        modalGenres = project.Genre?.Where(g => !string.IsNullOrWhiteSpace(g)).ToList() ?? new();
+        genreInput = "";
+        validationErrors.Clear();
+        showModal = true;
+    }
+
+    private void CloseModal() {
+        showModal = false;
+        validationErrors.Clear();
+    }
+
+    private void CloseModalOnOverlay(MouseEventArgs e) {
+        CloseModal();
+    }
+
+    private void HandleGenreInput(KeyboardEventArgs e) {
+        if ((e.Key == " " || e.Key == "Enter") && !string.IsNullOrWhiteSpace(genreInput)) {
+            AddGenre();
+        }
+    }
+
+    private void AddGenre() {
+        var trimmedGenre = genreInput.Trim();
+
+        if (string.IsNullOrWhiteSpace(trimmedGenre)) {
+            genreInput = "";
+            return;
+        }
+
+        if (trimmedGenre.Length > 25) {
+            validationErrors.Clear();
+            validationErrors.Add("ジャンルは25文字以内で入力してください。");
+            return;
+        }
+
+        if (modalGenres.Count >= Project.MaxGenreSize) {
+            validationErrors.Clear();
+            validationErrors.Add("ジャンルは最大5個までです。");
+            genreInput = "";
+            return;
+        }
+
+        if (modalGenres.Contains(trimmedGenre)) {
+            validationErrors.Clear();
+            validationErrors.Add("このジャンルは既に追加されています。");
+            genreInput = "";
+            return;
+        }
+
+        modalGenres.Add(trimmedGenre);
+        genreInput = "";
+        validationErrors.Clear();
+    }
+
+    private void RemoveGenre(string genre) {
+        modalGenres.Remove(genre);
+    }
+
+    private async Task SaveProject() {
+        // バリデーション
+        validationErrors.Clear();
+
+        if (string.IsNullOrWhiteSpace(modalProjectName)) {
+            validationErrors.Add("プロジェクト名は必須です。");
+        } else if (modalProjectName.Length > 100) {
+            validationErrors.Add("プロジェクト名は100文字以内で入力してください。");
+        }
+
+        if (modalProjectOverview.Length > 200) {
+            validationErrors.Add("概要は200文字以内で入力してください。");
+        }
+
+        // ジャンル入力中のテキストがあればバリデーション
+        if (!string.IsNullOrWhiteSpace(genreInput)) {
+            if (genreInput.Trim().Length > 25) {
+                validationErrors.Add("入力中のジャンルは25文字以内で入力してください。");
+            } else {
+                // 自動的に追加
+                AddGenre();
+            }
+        }
+
+        // 各ジャンルの長さをチェック
+        foreach (var genre in modalGenres) {
+            if (genre.Length > 25) {
+                validationErrors.Add($"ジャンル「{genre}」は25文字以内にしてください。");
+            }
+        }
+
+        if (validationErrors.Any()) {
+            return;
+        }
+
+        if (isEditMode && editingProjectId.HasValue) {
+            // 編集モード
+            var project = await Db.Projects
+                .Where(x => x.Id == editingProjectId.Value && x.UserId == userId)
+                .FirstOrDefaultAsync();
+
+            if (project != null) {
+                project.Name = modalProjectName;
+                project.Overview = modalProjectOverview;
+                project.Genre = modalGenres.Any() ? modalGenres.ToArray() : null;
+                project.UpdatedAt = DateTime.UtcNow;
+
+                await Db.SaveChangesAsync();
+
+                // リストを更新
+                var index = _projects!.FindIndex(p => p.Id == editingProjectId.Value);
+                if (index >= 0) {
+                    _projects[index] = project;
+                }
+            }
+        } else {
+            // 新規追加モード
+            var project = new Project() {
+                Name = modalProjectName,
+                Overview = modalProjectOverview,
+                Genre = modalGenres.Any() ? modalGenres.ToArray() : null,
+                UserId = userId!,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            Db.Projects.Add(project);
+            await Db.SaveChangesAsync();
+
+            _projects!.Insert(0, project);
+        }
+
+        CloseModal();
+    }
+
+    private void NavigateToEdit(int id) {
         Nav.NavigateTo($"/projects/edit/{id}");
     }
 

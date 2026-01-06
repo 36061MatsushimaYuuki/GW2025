@@ -12,7 +12,7 @@ using StoryDesignSupportWebApp.Data;
 namespace StoryDesignSupportWebApp.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20251211050610_Init")]
+    [Migration("20260106025709_Init")]
     partial class Init
     {
         /// <inheritdoc />
@@ -235,18 +235,17 @@ namespace StoryDesignSupportWebApp.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Genre")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("Overview")
                         .IsRequired()
-                        .HasMaxLength(400)
-                        .HasColumnType("nvarchar(400)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
