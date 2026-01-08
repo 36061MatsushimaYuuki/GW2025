@@ -49,3 +49,12 @@ h1:focus {
 .darker-border-checkbox.form-check-input {
     border-color: #929292;
 }
+
+img {
+    user-select: none; /* 選択禁止 */
+    -webkit-user-drag: none; /* Webkitブラウザ（ChromeやSafari）向け */
+    -webkit-user-select: none;
+    -moz-user-select: none; /* Firefox向け */
+    -ms-user-select: none; /* IE向け */
+    pointer-events: none; /* 右クリックや長押し禁止 */
+}

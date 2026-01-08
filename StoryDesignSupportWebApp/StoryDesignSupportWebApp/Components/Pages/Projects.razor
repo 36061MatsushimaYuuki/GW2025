@@ -65,6 +65,12 @@
                 background: #0056b3;
             }
 
+    .filter-button img {
+        width: 24px;
+        height: 24px;
+        object-fit: contain;
+    }
+
     .search-box {
         flex: 1;
         min-width: 150px;
@@ -496,7 +502,7 @@
     }
 
     .project-name {
-        font-size: 18px;
+        font-size: 22px;
         font-weight: bold;
         color: #333;
         margin: 0;
@@ -537,6 +543,51 @@
     }
 
         .delete-btn:hover {
+            background: #c82333;
+        }
+
+    .delete-modal-content {
+        background: white;
+        border-radius: 8px;
+        padding: 30px;
+        max-width: 400px;
+        width: 90%;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .delete-modal-message {
+        margin-bottom: 20px;
+        font-size: 16px;
+        color: #333;
+    }
+
+    .delete-modal-project-name {
+        font-weight: bold;
+        color: #dc3545;
+        margin: 10px 0;
+    }
+
+    .delete-modal-actions {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+    }
+
+        .delete-modal-actions button {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+    .delete-confirm-btn {
+        background: #dc3545;
+        color: white;
+    }
+
+        .delete-confirm-btn:hover {
             background: #c82333;
         }
 
@@ -609,7 +660,7 @@
             <button class="filter-button @(HasActiveFilters ? "active" : "")" 
                     @onclick="OpenFilterModal" 
                     title="ソート・フィルター">
-                ☰
+                <img src="/images/filter-icon.png"/>
             </button>
 
             <div class="search-box">
@@ -645,7 +696,7 @@
                         <h4 class="project-name" title="@p.Name">@p.Name</h4>
                         <div class="project-actions">
                             <button class="edit-btn" @onclick:stopPropagation="true" @onclick="() => OpenEditModal(p)">編集</button>
-                            <button class="delete-btn" @onclick:stopPropagation="true" @onclick="() => Delete(p.Id)">削除</button>
+                            <button class="delete-btn" @onclick:stopPropagation="true" @onclick="() => OpenDeleteModal(p.Id, p.Name)">削除</button>
                         </div>
                     </div>
 
@@ -665,7 +716,7 @@
 
                     <div class="project-dates">
                         <div>作成日: @p.CreatedAt.ToLocalTime().ToString("yyyy/MM/dd HH:mm")</div>
-                        <div>更新日: @(p.UpdatedAt?.ToLocalTime().ToString("yyyy/MM/dd HH:mm") ?? "未更新")</div>
+                        <div>更新日: @GetRelativeTime(p.UpdatedAt)</div>
                     </div>
                 </div>
             }
@@ -806,6 +857,27 @@
     </div>
 </div>
 
+<!-- 削除確認モーダル -->
+<div class="modal-overlay @(showDeleteModal ? "show" : "")" @onclick="CloseDeleteModal">
+    <div class="delete-modal-content" @onclick:stopPropagation="true">
+        <div class="modal-header">
+            <h3>プロジェクトの削除</h3>
+            <button class="modal-close" @onclick="CloseDeleteModal">&times;</button>
+        </div>
+
+        <div class="delete-modal-message">
+            以下のプロジェクトを削除してもよろしいですか？
+            <div class="delete-modal-project-name">@deleteTargetProjectName</div>
+            この操作は取り消せません。
+        </div>
+
+        <div class="delete-modal-actions">
+            <button class="cancel-btn" @onclick="CloseDeleteModal">キャンセル</button>
+            <button class="delete-confirm-btn" @onclick="ConfirmDelete">削除</button>
+        </div>
+    </div>
+</div>
+
 @code {
     private List<Project>? _projects;
     private string searchText = "";
@@ -829,6 +901,11 @@
     private List<string> modalGenres = new();
     private string genreInput = "";
     private List<string> validationErrors = new();
+
+    // 削除確認モーダル関連
+    private bool showDeleteModal = false;
+    private int? deleteTargetId = null;
+    private string deleteTargetProjectName = "";
 
     private IEnumerable<Project> FilteredProjects {
         get {
@@ -1074,6 +1151,33 @@
         Nav.NavigateTo($"/projects/edit/{id}");
     }
 
+    private void OpenDeleteModal(int id, string projectName) {
+        deleteTargetId = id;
+        deleteTargetProjectName = projectName;
+        showDeleteModal = true;
+    }
+
+    private void CloseDeleteModal() {
+        showDeleteModal = false;
+        deleteTargetId = null;
+        deleteTargetProjectName = "";
+    }
+
+    private async Task ConfirmDelete() {
+        if (deleteTargetId.HasValue) {
+            var target = await Db.Projects
+                .Where(x => x.Id == deleteTargetId.Value && x.UserId == userId)
+                .FirstOrDefaultAsync();
+
+            if (target != null) {
+                Db.Projects.Remove(target);
+                await Db.SaveChangesAsync();
+                _projects!.Remove(target);
+            }
+        }
+        CloseDeleteModal();
+    }
+
     private async Task Delete(int id) {
         var target = await Db.Projects
             .Where(x => x.Id == id && x.UserId == userId)
@@ -1084,5 +1188,20 @@
             await Db.SaveChangesAsync();
             _projects!.Remove(target);
         }
+    }
+
+    private string GetRelativeTime(DateTime? dateTime) {
+        if (!dateTime.HasValue) return "未更新";
+
+        var localTime = dateTime.Value.ToLocalTime();
+        var now = DateTime.Now;
+        var diff = now - localTime;
+
+        if (diff.TotalMinutes < 1) return "たった今";
+        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}分前";
+        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}時間前";
+        if (diff.TotalDays < 30) return $"{(int)diff.TotalDays}日前";
+        if (diff.TotalDays < 365) return $"{(int)(diff.TotalDays / 30)}ヶ月前";
+        return $"{(int)(diff.TotalDays / 365)}年前";
     }
 }

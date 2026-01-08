@@ -4,7 +4,7 @@
 @rendermode InteractiveAuto
 
 <div class="top-row px-4 @(TopRowState.IsCollapsed ? "collapsed" : "")">
-    <img src="favicon.png">
+    <img src="favicon.png" draggable="false">
     @if (showToggleButton) {
         <button class="toggle-btn" @onclick="ToggleTopRow">
             @if (TopRowState.IsCollapsed) {
