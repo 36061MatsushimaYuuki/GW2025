@@ -25,7 +25,7 @@
 
     .edit-container {
         display: flex;
-        height: 100vh;
+        height: calc(100vh - 5rem);
         overflow: hidden;
     }
 
@@ -293,6 +293,7 @@
     /* モバイルビュー */
     .mobile-view {
         display: none;
+        height: calc(100vh - 5rem);
     }
 
     .mobile-list {
@@ -450,9 +451,9 @@
         font-weight: bold;
     }
 
-        .delete-section:hover {
-            color: #ff1111;
-        }
+    .delete-section:hover {
+        color: #ff1111;
+    }
 
     .modal-section {
         margin-bottom: 15px;
@@ -587,7 +588,7 @@
         <!-- サイドバー -->
         <div class="sidebar">
             @if (_showCategoryView) {
-                <div class="sidebar-header" @onclick="() => _showCategoryView = false">
+                <div class="sidebar-header" @onclick="BackToCategoryView">
                     &lt; カテゴリ選択に戻る
                 </div>
                 <div class="chapter-view">
@@ -670,9 +671,9 @@
                                         ? $"Chapter {_selectedChapter + 1}"
                                         : _project.ProjectDataObject.Scenario.chapters[_selectedChapter].Title
                                         )
-                    </div>
-                    <input type="text" class="section-title-input" @bind="section.Title" @bind:event="oninput" @bind:after="AutoSave" placeholder="セクションタイトル" />
                 </div>
+                <input type="text" class="section-title-input" @bind="section.Title" @bind:event="oninput" @bind:after="AutoSave" placeholder="セクションタイトル" />
+            </div>
 
                 <div class="editor-toolbar">
                     <button class="toolbar-btn" @onclick="Undo" title="Undo">←</button>
@@ -699,11 +700,17 @@
                          @onkeydown="OnKeyDown">
                     </div>
                 </div>
-            } else {
+                } else {
                 <div class="editor-content">
-                    <div class="empty-message" style="margin-top: 50px;">
-                        左のサイドバーから編集する話を選択してください
-                    </div>
+                    @if (_showCategoryView) {
+                        <div class="empty-message" style="margin-top: 50px;">
+                            左のサイドバーから編集する話を選択してください
+                        </div>
+                    } else {
+                        <div class="empty-message" style="margin-top: 50px;">
+                            左のサイドバーからカテゴリーを選択してください
+                        </div>
+                    }
                 </div>
             }
         </div>
@@ -888,6 +895,35 @@
                     DotNet.invokeMethodAsync('StoryDesignSupportWebApp', 'OnWindowResize', '{_instanceId}', window.innerWidth);
                 }}, 300);
             }});
+
+            // ヘッダーの高さに応じてコンテナの高さを調整
+            function adjustContainerHeight() {{
+                const topRow = document.querySelector('.top-row');
+                const desktopContainer = document.querySelector('.edit-container.desktop-view');
+                const mobileContainer = document.querySelector('.mobile-view');
+
+                if (topRow) {{
+                    const isCollapsed = topRow.classList.contains('collapsed');
+                    const height = isCollapsed ? 'calc(100vh - 2rem)' : 'calc(100vh - 5rem)';
+
+                    if (desktopContainer) {{
+                        desktopContainer.style.height = height;
+                    }}
+                    if (mobileContainer) {{
+                        mobileContainer.style.height = height;
+                    }}
+                }}
+            }}
+
+            // 初回調整
+            adjustContainerHeight();
+
+            // MutationObserverでヘッダーの変更を監視
+            const observer = new MutationObserver(adjustContainerHeight);
+            const topRow = document.querySelector('.top-row');
+            if (topRow) {{
+                observer.observe(topRow, {{ attributes: true, attributeFilter: ['class'] }});
+            }}
         ");
         }
 
@@ -934,11 +970,55 @@
         });
     }
 
-    private void SelectCategory(string category) {
+    private async Task BackToCategoryView() {
+        // 現在のセクションを保存
+        if (_selectedChapter >= 0 && _selectedSection >= 0) {
+            await SaveContent();
+            await AutoSave();
+        }
+
+        _showCategoryView = false;
+        _selectedChapter = -1;
+        _selectedSection = -1;
+        _lastRenderedChapter = -1;
+        _lastRenderedSection = -1;
+        _mobileShowEditor = false;
+
+        StateHasChanged();
+    }
+
+    private async Task SelectCategory(string category) {
+        // 現在のセクションを保存
+        if (_selectedChapter >= 0 && _selectedSection >= 0) {
+            await SaveContent();
+            await AutoSave();
+        }
+
         _currentCategory = category;
         if (category == "writing") {
             _showCategoryView = true;
+        } else if (category == "structure") {
+            NavigateToStructure(id);
+        } else if (category == "materials") {
+            NavigateToMaterials(id);
         }
+
+        // 編集画面を閉じる
+        _selectedChapter = -1;
+        _selectedSection = -1;
+        _lastRenderedChapter = -1;
+        _lastRenderedSection = -1;
+        _mobileShowEditor = false;
+
+        StateHasChanged();
+    }
+
+    private void NavigateToStructure(int id) {
+        Nav.NavigateTo($"/projects/edit/{id}/structure");
+    }
+
+    private void NavigateToMaterials(int id) {
+        Nav.NavigateTo($"/projects/edit/{id}/materials");
     }
 
     private void ToggleChapter(int chapterIndex) {
@@ -1062,7 +1142,7 @@
             string content = "";
 
             // 現在表示されているエディタから内容を取得
-            if(_mobileShowEditor) {
+            if (_mobileShowEditor) {
                 content = await JSRuntime.InvokeAsync<string>("getEditableContent", "content-editable-mobile");
             } else {
                 content = await JSRuntime.InvokeAsync<string>("getEditableContent", "content-editable");

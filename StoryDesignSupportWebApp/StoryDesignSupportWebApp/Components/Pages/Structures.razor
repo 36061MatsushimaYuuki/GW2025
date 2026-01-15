@@ -1,0 +1,153 @@
+﻿@page "/projects/edit/{id:int}/structure"
+
+@rendermode InteractiveServer
+@attribute [Authorize]
+
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using StoryDesignSupportWebApp.Data
+@using StoryDesignSupportWebApp.Data.EditData
+@inject UserManager<ApplicationUser> UserManager
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Materials</PageTitle>
+
+<style>
+    .sidebar {
+        width: 300px;
+        background-color: #f5f5f5;
+        border-right: 1px solid #ddd;
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+    }
+
+    .sidebar-header {
+        padding: 15px;
+        border-bottom: 1px solid #ddd;
+        background-color: #fff;
+        cursor: pointer;
+        color: #0066cc;
+    }
+
+        .sidebar-header:hover {
+            background-color: #f0f0f0;
+        }
+
+    .category-view, .structure-view {
+        flex: 1;
+        overflow-y: auto;
+    }
+
+    .category-item {
+        padding: 15px 20px;
+        border-bottom: 1px solid #e0e0e0;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+
+        .category-item:hover {
+            background-color: #e8e8e8;
+        }
+
+        .category-item.active {
+            background-color: #0066cc;
+            color: white;
+        }
+</style>
+
+@if (_project == null) {
+    <p>Loading...</p>
+} else {
+    <div class="sidebar">
+        @if (_showCategoryView) {
+            <div class="sidebar-header" @onclick="BackToCategoryView">
+                &lt; カテゴリ選択に戻る
+            </div>
+            <div class="structure-view">
+
+            </div>
+        } else {
+            <div class="sidebar-header" @onclick="BackToProjectList">
+                &lt; 一覧に戻る
+            </div>
+            <div class="category-view">
+                <div class="category-item" @onclick='() => SelectCategory("writing")'>
+                    執筆
+                </div>
+                <div class="category-item @(_currentCategory == "structure" ? "active" : "")" @onclick='() => SelectCategory("structure")'>
+                    構成
+                </div>
+                <div class="category-item" @onclick='() => SelectCategory("materials")'>
+                    資料
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int id { get; set; }
+
+    private Project? _project;
+    private string _currentCategory = "structure";
+    private bool _showCategoryView = true;
+
+    protected override async Task OnInitializedAsync() {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        var appUser = await UserManager.GetUserAsync(user);
+        var userId = appUser.Id;
+
+        _project = await DbFactory
+            .CreateDbContext()
+            .Projects
+            .Where(x => x.Id == id && x.UserId == userId)
+            .FirstOrDefaultAsync();
+
+        if (_project == null) {
+            Nav.NavigateTo("/projects");
+        }
+    }
+
+    private async Task BackToCategoryView() {
+        _showCategoryView = false;
+
+        StateHasChanged();
+    }
+
+    private async Task BackToProjectList() {
+        await using var db = DbFactory.CreateDbContext();
+        db.Projects.Update(_project);
+        await db.SaveChangesAsync();   // ← ここで確定
+
+        Nav.NavigateTo("/projects");
+    }
+
+    private async Task SelectCategory(string category) {
+        _currentCategory = category;
+        if (category == "writing") {
+            NavigateToWriting(id);
+        } else if (category == "structure") {
+            _showCategoryView = true;
+        } else if (category == "materials") {
+            NavigateToMaterials(id);
+        }
+
+        StateHasChanged();
+    }
+
+    private void NavigateToWriting(int id) {
+        Nav.NavigateTo($"/projects/edit/{id}");
+    }
+
+    private void NavigateToMaterials(int id) {
+        Nav.NavigateTo($"/projects/edit/{id}/materials");
+    }
+}
