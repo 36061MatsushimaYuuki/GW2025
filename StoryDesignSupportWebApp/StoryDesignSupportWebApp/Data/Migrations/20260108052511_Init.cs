@@ -29,6 +29,16 @@ namespace StoryDesignSupportWebApp.Migrations
                 {
                     table.PrimaryKey("PK_Projects", x => x.Id);
                 });
+
+            migrationBuilder.CreateIndex(
+                        name: "IX_Projects_UserId_UpdatedAt",
+                        table: "Projects",
+                        columns: new[] { "UserId", "UpdatedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Projects_UserId_CreatedAt",
+                table: "Projects",
+                columns: new[] { "UserId", "CreatedAt" });
         }
 
         /// <inheritdoc />
@@ -36,6 +46,14 @@ namespace StoryDesignSupportWebApp.Migrations
         {
             migrationBuilder.DropTable(
                 name: "Projects");
+
+            migrationBuilder.DropIndex(
+            name: "IX_Projects_UserId_UpdatedAt",
+            table: "Projects");
+
+            migrationBuilder.DropIndex(
+                name: "IX_Projects_UserId_CreatedAt",
+                table: "Projects");
         }
     }
 }

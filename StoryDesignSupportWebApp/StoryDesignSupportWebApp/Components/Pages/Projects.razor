@@ -910,9 +910,19 @@
 </div>
 
 @code {
-    private List<Project>? _projects;
+    private List<ProjectListItem>? _projects;
     private string searchText = "";
     private string? userId;
+
+    // プロジェクト一覧用の軽量データ構造
+    private class ProjectListItem {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public string? Overview { get; set; }
+        public string[]? Genre { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime? UpdatedAt { get; set; }
+    }
 
     // ソート・フィルター関連
     private bool showFilterModal = false;
@@ -920,7 +930,7 @@
     private string sortOrder = "desc";
     private HashSet<string> selectedGenreFilters = new();
     private bool genreSectionExpanded = false;
-    
+
     private bool HasActiveFilters => !(sortField == "created" && sortOrder == "desc") || selectedGenreFilters.Any();
 
     private bool HasSearchOrGenreFilter => !string.IsNullOrWhiteSpace(searchText) || selectedGenreFilters.Any();
@@ -940,9 +950,9 @@
     private int? deleteTargetId = null;
     private string deleteTargetProjectName = "";
 
-    private IEnumerable<Project> FilteredProjects {
+    private IEnumerable<ProjectListItem> FilteredProjects {
         get {
-            if (_projects == null) return Enumerable.Empty<Project>();
+            if (_projects == null) return Enumerable.Empty<ProjectListItem>();
 
             var filtered = _projects.AsEnumerable();
 
@@ -961,7 +971,7 @@
 
             // ソート適用
             if (sortField == "created") {
-                filtered = sortOrder == "desc" 
+                filtered = sortOrder == "desc"
                     ? filtered.OrderByDescending(p => p.CreatedAt)
                     : filtered.OrderBy(p => p.CreatedAt);
             } else {
@@ -991,9 +1001,18 @@
         var appUser = await UserManager.GetUserAsync(user);
         userId = appUser?.Id;
 
+        // ProjectDataObjectを除外して必要なフィールドのみ取得
         _projects = await Db.Projects
             .AsNoTracking()
             .Where(x => x.UserId == userId)
+            .Select(p => new ProjectListItem {
+                Id = p.Id,
+                Name = p.Name,
+                Overview = p.Overview,
+                Genre = p.Genre,
+                CreatedAt = p.CreatedAt,
+                UpdatedAt = p.UpdatedAt
+            })
             .ToListAsync();
     }
 
@@ -1050,7 +1069,15 @@
         showModal = true;
     }
 
-    private void OpenEditModal(Project project) {
+    private async Task OpenEditModal(ProjectListItem projectItem) {
+        // 編集時のみ完全なプロジェクトデータを取得
+        var project = await Db.Projects
+            .AsNoTracking()
+            .Where(x => x.Id == projectItem.Id && x.UserId == userId)
+            .FirstOrDefaultAsync();
+
+        if (project == null) return;
+
         isEditMode = true;
         editingProjectId = project.Id;
         modalProjectName = project.Name;
@@ -1149,7 +1176,7 @@
         }
 
         if (isEditMode && editingProjectId.HasValue) {
-            // 編集モード
+            // 編集モード - ProjectDataObjectを含む完全なエンティティを取得
             var project = await Db.Projects
                 .Where(x => x.Id == editingProjectId.Value && x.UserId == userId)
                 .FirstOrDefaultAsync();
@@ -1162,10 +1189,17 @@
 
                 await Db.SaveChangesAsync();
 
-                // リストを更新
+                // リストアイテムを更新
                 var index = _projects!.FindIndex(p => p.Id == editingProjectId.Value);
                 if (index >= 0) {
-                    _projects[index] = project;
+                    _projects[index] = new ProjectListItem {
+                        Id = project.Id,
+                        Name = project.Name,
+                        Overview = project.Overview,
+                        Genre = project.Genre,
+                        CreatedAt = project.CreatedAt,
+                        UpdatedAt = project.UpdatedAt
+                    };
                 }
             }
         } else {
@@ -1181,7 +1215,15 @@
             Db.Projects.Add(project);
             await Db.SaveChangesAsync();
 
-            _projects!.Insert(0, project);
+            // リストに追加
+            _projects!.Insert(0, new ProjectListItem {
+                Id = project.Id,
+                Name = project.Name,
+                Overview = project.Overview,
+                Genre = project.Genre,
+                CreatedAt = project.CreatedAt,
+                UpdatedAt = project.UpdatedAt
+            });
         }
 
         CloseModal();

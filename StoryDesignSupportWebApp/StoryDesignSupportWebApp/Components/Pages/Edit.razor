@@ -42,7 +42,14 @@
         display: flex;
         flex-direction: column;
         overflow-y: auto;
+        position: relative;
+        transition: margin-left 0.3s ease, width 0.3s ease;
     }
+
+        .sidebar.collapsed {
+            margin-left: 0;
+            width: 0;
+        }
 
     .sidebar-header {
         padding: 15px;
@@ -54,6 +61,56 @@
 
         .sidebar-header:hover {
             background-color: #f0f0f0;
+        }
+
+    /* サイドバー開閉ボタン */
+    .sidebar-toggle {
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
+        background-color: #0066cc;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        width: 32px;
+        height: 32px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        z-index: 10;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        transition: background-color 0.2s;
+    }
+
+        .sidebar-toggle:hover {
+            background-color: #0052a3;
+        }
+
+    .sidebar-open-btn {
+        position: fixed;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        background-color: #0066cc;
+        color: white;
+        border: none;
+        border-radius: 0 4px 4px 0;
+        width: 32px;
+        height: 48px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        z-index: 10;
+        box-shadow: 2px 0 4px rgba(0,0,0,0.2);
+        transition: background-color 0.2s;
+    }
+
+        .sidebar-open-btn:hover {
+            background-color: #0052a3;
         }
 
     .category-view, .chapter-view {
@@ -175,7 +232,12 @@
         flex-direction: column;
         overflow: hidden;
         min-width: 0;
+        transition: margin-left 0.3s ease;
     }
+
+        .editor-area.expanded {
+            margin-left: 0;
+        }
 
     .editor-header {
         padding: 15px 20px;
@@ -232,6 +294,17 @@
             color: white;
             border-color: #0066cc;
         }
+
+        .toolbar-btn:disabled {
+            background-color: #e0e0e0;
+            color: #999;
+            cursor: not-allowed;
+            border-color: #ccc;
+        }
+
+            .toolbar-btn:disabled:hover {
+                background-color: #e0e0e0;
+            }
 
     .toolbar-separator {
         width: 1px;
@@ -520,9 +593,33 @@
         .content-editable {
             min-height: 300px;
         }
+
+        .sidebar-toggle,
+        .sidebar-open-btn {
+            display: none;
+        }
+
+        .sidebar.collapsed {
+            margin-left: 0;
+            width: 300px;
+        }
     }
 
     #char-counter {
+        position: fixed;
+        right: 16px;
+        bottom: 16px;
+        font-size: 14px;
+        color: #666;
+        background: rgba(255, 255, 255, 0.9);
+        padding: 6px 10px;
+        border-radius: 8px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        pointer-events: none;
+        z-index: 1000;
+    }
+
+    #char-counter-mobile {
         position: fixed;
         right: 16px;
         bottom: 16px;
@@ -660,8 +757,13 @@
     }
     <!-- デスクトップビュー -->
     <div class="edit-container desktop-view">
+        <!-- サイドバー開くボタン（サイドバーが閉じているときのみ表示） -->
+        @if (_sidebarCollapsed) {
+            <button class="sidebar-open-btn" @onclick="ToggleSidebar">▶</button>
+        }
+
         <!-- サイドバー -->
-        <div class="sidebar">
+        <div class="sidebar @(_sidebarCollapsed ? "collapsed" : "")">
             @if (_showCategoryView) {
                 <div class="sidebar-header" @onclick="BackToCategoryView">
                     &lt; カテゴリ選択に戻る
@@ -725,6 +827,11 @@
                     </div>
                 </div>
             }
+
+            <!-- サイドバー閉じるボタン（サイドバーが開いているときのみ表示） -->
+            @if (!_sidebarCollapsed) {
+                <button class="sidebar-toggle" @onclick="ToggleSidebar">◀</button>
+            }
         </div>
 
         <!-- 編集エリア -->
@@ -758,7 +865,7 @@
                     <button class="toolbar-btn @(_formatStates["italic"] ? "active" : "")" @onclick='() => ToggleFormat("italic")' title="斜体"><i>I</i></button>
                     <button class="toolbar-btn @(_formatStates["underline"] ? "active" : "")" @onclick='() => ToggleFormat("underline")' title="下線"><u>U</u></button>
                     <div class="toolbar-separator"></div>
-                    <button class="toolbar-btn" @onclick="ShowRubyModal" title="ルビ">ルビ</button>
+                    <button class="toolbar-btn" @onclick="ShowRubyModal" title="ルビ" disabled="@_isRubyButtonDisabled">ルビ</button>
                     <div class="toolbar-separator"></div>
                     <button class="toolbar-btn" @onclick='() => ApplyFormat("p")'>本文</button>
                     <button class="toolbar-btn" @onclick='() => ApplyFormat("h1")'>H1</button>
@@ -831,7 +938,7 @@
                         <button class="toolbar-btn @(_formatStates["italic"] ? "active" : "")" @onclick='() => ToggleFormat("italic")'><i>I</i></button>
                         <button class="toolbar-btn @(_formatStates["underline"] ? "active" : "")" @onclick='() => ToggleFormat("underline")'><u>U</u></button>
                         <div class="toolbar-separator"></div>
-                        <button class="toolbar-btn" @onclick="ShowRubyModal" style="font-size: 11px;">ルビ</button>
+                        <button class="toolbar-btn" @onclick="ShowRubyModal" style="font-size: 11px;" disabled="@_isRubyButtonDisabled">ルビ</button>
                         <div class="toolbar-separator"></div>
                         <button class="toolbar-btn" @onclick='() => ApplyFormat("p")'>本文</button>
                         <button class="toolbar-btn" @onclick='() => ApplyFormat("h1")'>H1</button>
@@ -842,14 +949,15 @@
                     </div>
 
                     <div style="flex: 1; overflow-y: auto; padding: 10px;">
-                        <div id="content-editable-mobile"
+                        <div @key="@($"{_selectedChapter}-{_selectedSection}")"
+                             id="content-editable-mobile"
                              class="content-editable"
                              contenteditable="true"
                              @oninput="OnContentInput"
                              @onkeydown="OnKeyDown">
                         </div>
                     </div>
-                    <div id="char-counter">0文字</div>
+                    <div id="char-counter-mobile">0文字</div>
                 </div>
         }
         } else {
@@ -925,6 +1033,7 @@
     };
     private System.Threading.Timer? _autoSaveTimer;
     private SemaphoreSlim _saveSemaphore = new SemaphoreSlim(1, 1);
+    private bool _isRubyButtonDisabled = false;
 
     protected override async Task OnInitializedAsync() {
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
@@ -950,8 +1059,20 @@
     }
 
     public void Dispose() {
-        _autoSaveTimer?.Dispose();
-        _saveSemaphore?.Dispose();
+        try {
+            _contentInputTimer?.Dispose();
+            _autoSaveTimer?.Dispose();
+            _saveSemaphore?.Dispose();
+
+            JSRuntime.InvokeVoidAsync("eval", $@"
+            window.blazorConnected = false;
+            window['editorEventListenersRegistered_{_instanceId}'] = false;
+        ");
+        }
+        catch {
+            // 既に切断されている場合は無視
+        }
+
         _instances.Remove(_instanceId);
     }
 
@@ -963,57 +1084,12 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender) {
         if (firstRender) {
-            await JSRuntime.InvokeVoidAsync("eval", $@"
-            window.addEventListener('formatStateChanged', function(e) {{
-                DotNet.invokeMethodAsync('StoryDesignSupportWebApp', 'UpdateFormatStates', '{_instanceId}', e.detail);
-            }});
-
-            // リサイズ検知
-            let resizeTimer;
-            window.addEventListener('resize', function() {{
-                clearTimeout(resizeTimer);
-                resizeTimer = setTimeout(function() {{
-                    DotNet.invokeMethodAsync('StoryDesignSupportWebApp', 'OnWindowResize', '{_instanceId}', window.innerWidth);
-                }}, 300);
-            }});
-
-            // ヘッダーの高さに応じてコンテナの高さを調整
-            function adjustContainerHeight() {{
-                const topRow = document.querySelector('.top-row');
-                const desktopContainer = document.querySelector('.edit-container.desktop-view');
-                const mobileContainer = document.querySelector('.mobile-view');
-                const mobileView = document.querySelector('.mobile-list');
-                const mobileEditor = document.querySelector('.mobile-editor');
-
-                if (topRow) {{
-                    const isCollapsed = topRow.classList.contains('collapsed');
-                    const height = isCollapsed ? 'calc(100vh - 2rem)' : 'calc(100vh - 5.5rem)';
-
-                    if (desktopContainer) {{
-                        desktopContainer.style.height = height;
-                    }}
-                    if (mobileContainer) {{
-                        mobileContainer.style.height = height;
-                    }}
-                    if (mobileView) {{
-                        mobileView.style.height = height;
-                    }}
-                    if (mobileEditor) {{
-                        mobileEditor.style.height = height;
-                    }}
-                }}
-            }}
-
-            // 初回調整
-            adjustContainerHeight();
-
-            // MutationObserverでヘッダーの変更を監視
-            const observer = new MutationObserver(adjustContainerHeight);
-            const topRow = document.querySelector('.top-row');
-            if (topRow) {{
-                observer.observe(topRow, {{ attributes: true, attributeFilter: ['class'] }});
-            }}
-        ");
+            try {
+                await JSRuntime.InvokeVoidAsync("initializeEditorEventListeners", _instanceId);
+            }
+            catch (Exception ex) {
+                Console.WriteLine($"JavaScript initialization error: {ex.Message}");
+            }
         }
 
         // セクションが変更された場合、またはリサイズ時
@@ -1033,10 +1109,19 @@
             await JSRuntime.InvokeVoidAsync("setEditableContent", "content-editable", section.Text ?? "");
             await JSRuntime.InvokeVoidAsync("setEditableContent", "content-editable-mobile", section.Text ?? "");
 
+            var elementId = _mobileShowEditor ? "content-editable-mobile" : "content-editable";
+            await JSRuntime.InvokeVoidAsync("updateCharCounterForElement", elementId);
+
             _lastRenderedChapter = _selectedChapter;
             _lastRenderedSection = _selectedSection;
             _isResizing = false;
         }
+    }
+
+    private bool _sidebarCollapsed = false;
+
+    private void ToggleSidebar() {
+        _sidebarCollapsed = !_sidebarCollapsed;
     }
 
     [JSInvokable("UpdateFormatStates")]
@@ -1045,18 +1130,40 @@
             return;
         }
 
-        instance.InvokeAsync(() => {
-            if (states.ContainsKey("bold")) {
-                instance._formatStates["bold"] = states["bold"];
-            }
-            if (states.ContainsKey("italic")) {
-                instance._formatStates["italic"] = states["italic"];
-            }
-            if (states.ContainsKey("underline")) {
-                instance._formatStates["underline"] = states["underline"];
-            }
-            instance.StateHasChanged();
-        });
+        try {
+            instance.InvokeAsync(() => {
+                if (states.ContainsKey("bold")) {
+                    instance._formatStates["bold"] = states["bold"];
+                }
+                if (states.ContainsKey("italic")) {
+                    instance._formatStates["italic"] = states["italic"];
+                }
+                if (states.ContainsKey("underline")) {
+                    instance._formatStates["underline"] = states["underline"];
+                }
+                instance.StateHasChanged();
+            });
+        }
+        catch (Exception ex) {
+            Console.WriteLine($"UpdateFormatStates error: {ex.Message}");
+        }
+    }
+
+    [JSInvokable("UpdateRubyButtonState")]
+    public static void UpdateRubyButtonState(string instanceId, bool disabled) {
+        if (!_instances.TryGetValue(instanceId, out var instance) || instance == null) {
+            return;
+        }
+
+        try {
+            instance.InvokeAsync(() => {
+                instance._isRubyButtonDisabled = disabled;
+                instance.StateHasChanged();
+            });
+        }
+        catch (Exception ex) {
+            Console.WriteLine($"UpdateRubyButtonState error: {ex.Message}");
+        }
     }
 
     private async Task BackToCategoryView() {
@@ -1189,9 +1296,40 @@
         _formatStates["underline"] = false;
     }
 
+    private System.Threading.Timer? _contentInputTimer;
+    private bool _hasPendingContentSave = false;
+
     private async Task OnContentInput() {
-        await SaveContent();
-        ScheduleAutoSave();
+        _hasPendingContentSave = true;
+
+        // 既存のタイマーをキャンセル
+        _contentInputTimer?.Dispose();
+
+        // 500ms後に保存
+        _contentInputTimer = new System.Threading.Timer(async _ => {
+            if (_hasPendingContentSave) {
+                await InvokeAsync(async () => {
+                    try {
+                        await SaveContent();
+                        ScheduleAutoSave();
+                        _hasPendingContentSave = false;
+                    }
+                    catch (Exception ex) {
+                        Console.WriteLine($"OnContentInput error: {ex.Message}");
+                    }
+                });
+            }
+        }, null, 500, Timeout.Infinite);
+
+        // 文字カウンターは即座に更新
+        var elementId = _mobileShowEditor ? "content-editable-mobile" : "content-editable";
+        await JSRuntime.InvokeVoidAsync("updateCharCounterForElement", elementId);
+    }
+
+    private async Task CheckRubyButtonState() {
+        var elementId = _mobileShowEditor ? "content-editable-mobile" : "content-editable";
+        _isRubyButtonDisabled = await JSRuntime.InvokeAsync<bool>("isMixedRubySelection", elementId);
+        StateHasChanged();
     }
 
     private async Task OnKeyDown() {
@@ -1229,11 +1367,14 @@
         try {
             string content = "";
 
+            // タイムアウト設定を追加
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+
             // 現在表示されているエディタから内容を取得
             if (_mobileShowEditor) {
-                content = await JSRuntime.InvokeAsync<string>("getEditableContent", "content-editable-mobile");
+                content = await JSRuntime.InvokeAsync<string>("getEditableContent", cts.Token, "content-editable-mobile");
             } else {
-                content = await JSRuntime.InvokeAsync<string>("getEditableContent", "content-editable");
+                content = await JSRuntime.InvokeAsync<string>("getEditableContent", cts.Token, "content-editable");
             }
 
             if (_selectedChapter >= 0 && _selectedSection >= 0 &&
@@ -1242,8 +1383,28 @@
                 _project.ProjectDataObject.Scenario.chapters[_selectedChapter].Sections != null &&
                 _selectedSection < _project.ProjectDataObject.Scenario.chapters[_selectedChapter].Sections.Length) {
 
+                // 内容が変わっていない場合はスキップ
+                if (_project.ProjectDataObject.Scenario.chapters[_selectedChapter].Sections[_selectedSection].Text == content) {
+                    return;
+                }
+
                 _project.ProjectDataObject.Scenario.chapters[_selectedChapter].Sections[_selectedSection].Text = content;
                 _currentContentCache = content;
+            }
+        }
+        catch (OperationCanceledException) {
+            Console.WriteLine("SaveContent timeout - content might be too large");
+            // タイムアウトの場合は、キャッシュされた内容を使用
+            if (_selectedChapter >= 0 && _selectedSection >= 0 &&
+                _project?.ProjectDataObject?.Scenario?.chapters != null &&
+                _selectedChapter < _project.ProjectDataObject.Scenario.chapters.Length &&
+                _project.ProjectDataObject.Scenario.chapters[_selectedChapter].Sections != null &&
+                _selectedSection < _project.ProjectDataObject.Scenario.chapters[_selectedChapter].Sections.Length) {
+
+                // 既にキャッシュがある場合はそれを使用
+                if (!string.IsNullOrEmpty(_currentContentCache)) {
+                    _project.ProjectDataObject.Scenario.chapters[_selectedChapter].Sections[_selectedSection].Text = _currentContentCache;
+                }
             }
         }
         catch (Exception ex) {
@@ -1261,21 +1422,31 @@
     }
 
     private async Task AutoSave() {
-        // 既に保存処理が実行中なら待機
         if (!await _saveSemaphore.WaitAsync(0)) {
-            return; // 保存中なら今回はスキップ
+            return;
         }
 
         try {
             if (_project != null) {
                 _project.UpdatedAt = DateTime.UtcNow;
-                await using var db = DbFactory.CreateDbContext();
-                db.Projects.Update(_project);
-                await db.SaveChangesAsync();
+
+                // リトライロジック
+                int maxRetries = 3;
+                for (int i = 0; i < maxRetries; i++) {
+                    try {
+                        await using var db = DbFactory.CreateDbContext();
+                        db.Projects.Update(_project);
+                        await db.SaveChangesAsync();
+                        break; // 成功したらループを抜ける
+                    }
+                    catch (Exception ex) when (i < maxRetries - 1) {
+                        Console.WriteLine($"AutoSave attempt {i + 1} failed: {ex.Message}");
+                        await Task.Delay(500 * (i + 1)); // リトライ前に待機
+                    }
+                }
             }
         }
         catch (Exception ex) {
-            // エラーログ（必要に応じて）
             Console.WriteLine($"AutoSave error: {ex.Message}");
         }
         finally {
@@ -1493,6 +1664,14 @@
         // カーソル位置を保存（editableエリア内でない場合は末尾に移動）
         await JSRuntime.InvokeVoidAsync("saveSelectionForRuby", elementId);
 
+        // 選択範囲がルビと非ルビの混在かチェック
+        var isMixedSelection = await JSRuntime.InvokeAsync<bool>("isMixedRubySelection", elementId);
+
+        if (isMixedSelection) {
+            // 混在している場合はモーダルを開かない
+            return;
+        }
+
         var rubyData = await JSRuntime.InvokeAsync<string[]>("checkRubySelection", elementId);
 
         if (rubyData != null && rubyData.Length == 2) {
@@ -1562,26 +1741,26 @@
     public static async Task OnWindowResize(string instanceId, int width) {
         if (!_instances.TryGetValue(instanceId, out var instance)) return;
 
-        await instance.InvokeAsync(async () => {
-            bool isMobile = width <= 768;
+        try {
+            await instance.InvokeAsync(async () => {
+                bool isMobile = width <= 768;
 
-            // ★ モバイル → PC に切り替わる瞬間
-            if (!isMobile && instance._mobileShowEditor) {
-                // 現在のモバイルエディタの内容を保存
-                await instance.SaveContent();
-                instance._mobileShowEditor = false;
-                // 強制的に再レンダリングフラグを立てる
-                instance._isResizing = true;
-            }
-            // ★ PC → モバイルに切り替わる瞬間（セクションが選択されている場合）
-            else if (isMobile && !instance._mobileShowEditor &&
-                     instance._selectedChapter >= 0 && instance._selectedSection >= 0) {
-                await instance.SaveContent();
-                instance._mobileShowEditor = true;
-                instance._isResizing = true;
-            }
-            instance.StateHasChanged();
-        });
+                if (!isMobile && instance._mobileShowEditor) {
+                    await instance.SaveContent();
+                    instance._mobileShowEditor = false;
+                    instance._isResizing = true;
+                } else if (isMobile && !instance._mobileShowEditor &&
+                           instance._selectedChapter >= 0 && instance._selectedSection >= 0) {
+                    await instance.SaveContent();
+                    instance._mobileShowEditor = true;
+                    instance._isResizing = true;
+                }
+                instance.StateHasChanged();
+            });
+        }
+        catch (Exception ex) {
+            Console.WriteLine($"OnWindowResize error: {ex.Message}");
+        }
     }
 }
 
@@ -1589,6 +1768,165 @@
     (function() {
         if (window.editorScriptLoaded) return;
         window.editorScriptLoaded = true;
+
+        // Blazor接続状態を追跡
+        let blazorConnected = true;
+
+        // Blazor切断検知
+        if (window.Blazor) {
+            Blazor.disconnect = new Proxy(Blazor.disconnect || (() => {}), {
+                apply: function(target, thisArg, args) {
+                    blazorConnected = false;
+                    return target.apply(thisArg, args);
+                }
+            });
+        }
+
+        // 安全なDotNet呼び出しヘルパー
+        function safeDotNetInvoke(methodName, ...args) {
+            if (!blazorConnected) {
+                return Promise.resolve();
+            }
+
+            try {
+                return DotNet.invokeMethodAsync('StoryDesignSupportWebApp', methodName, ...args);
+            } catch (e) {
+                console.warn('DotNet invoke failed:', e);
+                return Promise.resolve();
+            }
+        }
+
+        window.initializeEditorEventListeners = function(instanceId) {
+            if (window['editorEventListenersRegistered_' + instanceId]) return;
+            window['editorEventListenersRegistered_' + instanceId] = true;
+
+            window.addEventListener('formatStateChanged', function(e) {
+                if (!window.blazorConnected) return;
+                try {
+                    DotNet.invokeMethodAsync('StoryDesignSupportWebApp', 'UpdateFormatStates', instanceId, e.detail);
+                } catch (err) {
+                    console.warn('UpdateFormatStates failed:', err);
+                }
+            });
+
+            window.addEventListener('rubyButtonStateChanged', function(e) {
+                if (!window.blazorConnected) return;
+                try {
+                    DotNet.invokeMethodAsync('StoryDesignSupportWebApp', 'UpdateRubyButtonState', instanceId, e.detail.disabled);
+                } catch (err) {
+                    console.warn('UpdateRubyButtonState failed:', err);
+                }
+            });
+
+            // リサイズ検知
+            let resizeTimer;
+            window.addEventListener('resize', function() {
+                if (!window.blazorConnected) return;
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(function() {
+                    if (!window.blazorConnected) return;
+                    try {
+                        DotNet.invokeMethodAsync('StoryDesignSupportWebApp', 'OnWindowResize', instanceId, window.innerWidth);
+                    } catch (err) {
+                        console.warn('OnWindowResize failed:', err);
+                    }
+                }, 300);
+            });
+
+            // ヘッダーの高さに応じてコンテナの高さを調整
+            function adjustContainerHeight() {
+                const topRow = document.querySelector('.top-row');
+                const desktopContainer = document.querySelector('.edit-container.desktop-view');
+                const mobileContainer = document.querySelector('.mobile-view');
+                const mobileView = document.querySelector('.mobile-list');
+                const mobileEditor = document.querySelector('.mobile-editor');
+
+                if (topRow) {
+                    const isCollapsed = topRow.classList.contains('collapsed');
+                    const height = isCollapsed ? 'calc(100vh - 2rem)' : 'calc(100vh - 5.5rem)';
+
+                    if (desktopContainer) desktopContainer.style.height = height;
+                    if (mobileContainer) mobileContainer.style.height = height;
+                    if (mobileView) mobileView.style.height = height;
+                    if (mobileEditor) mobileEditor.style.height = height;
+                }
+            }
+
+            // 初回調整
+            adjustContainerHeight();
+
+            // MutationObserverでヘッダーの変更を監視
+            const observer = new MutationObserver(adjustContainerHeight);
+            const topRow = document.querySelector('.top-row');
+            if (topRow) {
+                observer.observe(topRow, { attributes: true, attributeFilter: ['class'] });
+            }
+
+            // Blazor接続状態の初期化
+            window.blazorConnected = true;
+        };
+
+        // ルビと非ルビが混在する選択範囲かチェック
+        window.isMixedRubySelection = function(elementId) {
+            const element = document.getElementById(elementId);
+            if (!element) return false;
+
+            const selection = window.getSelection();
+            if (selection.rangeCount === 0 || selection.isCollapsed) return false;
+
+            const range = selection.getRangeAt(0);
+
+            // 選択範囲内のすべてのruby要素を取得
+            const allRubiesInDoc = element.querySelectorAll('ruby');
+            let fullySelectedRubies = [];
+            let partiallySelectedRubies = [];
+
+            allRubiesInDoc.forEach(ruby => {
+                if (range.intersectsNode(ruby)) {
+                    const rubyRange = document.createRange();
+                    rubyRange.selectNode(ruby);
+
+                    const fullyContained =
+                        range.compareBoundaryPoints(Range.START_TO_START, rubyRange) <= 0 &&
+                        range.compareBoundaryPoints(Range.END_TO_END, rubyRange) >= 0;
+
+                    if (fullyContained) {
+                        fullySelectedRubies.push(ruby);
+                    } else {
+                        partiallySelectedRubies.push(ruby);
+                    }
+                }
+            });
+
+            // 部分的に選択されているruby要素がある場合は混在とみなす（ボタン無効）
+            if (partiallySelectedRubies.length > 0) {
+                return true;
+            }
+
+            // 選択範囲内のテキストを取得（ruby要素のrt部分を除く）
+            const fragment = range.cloneContents();
+            const tempDiv = document.createElement('div');
+            tempDiv.appendChild(fragment);
+
+            // rt要素を削除
+            const rtElements = tempDiv.querySelectorAll('rt');
+            rtElements.forEach(rt => rt.remove());
+
+            // 完全に選択されているruby要素のテキストを除去
+            fullySelectedRubies.forEach(() => {
+                const rubies = tempDiv.querySelectorAll('ruby');
+                if (rubies.length > 0) {
+                    rubies[0].remove();
+                }
+            });
+
+            // 残りのテキストをチェック（ゼロ幅スペースと空白を除く）
+            const remainingText = tempDiv.textContent.replace(/\u200B/g, '').replace(/\s/g, '');
+
+            // ルビ要素が1つ以上あり、かつ他のテキストもある場合は混在（ボタン無効）
+            // ルビ要素のみ、または通常テキストのみの場合はOK（ボタン有効）
+            return fullySelectedRubies.length > 0 && remainingText.length > 0;
+        };
 
         let currentFormat = {
             bold: false,
@@ -1624,6 +1962,28 @@
             return element ? element.innerHTML : '';
         };
 
+        // 特定のエディタの文字数をカウント
+        window.updateCharCounterForElement = function(elementId) {
+            const editor = document.getElementById(elementId);
+
+            if (!editor) return;
+
+            const count = countPlainTextCharacters(editor);
+
+            // モバイルかPCかで更新するカウンターを分ける
+            if (elementId === 'content-editable-mobile') {
+                const counter = document.getElementById("char-counter-mobile");
+                if (counter) {
+                    counter.textContent = `${count}文字`;
+                }
+            } else {
+                const counter = document.getElementById("char-counter");
+                if (counter) {
+                    counter.textContent = `${count}文字`;
+                }
+            }
+        };
+
         function countPlainTextCharacters(root) {
             let count = 0;
 
@@ -1652,51 +2012,60 @@
             return count;
         }
 
-        function updateCharCounter() {
-            // PC / モバイルどちらが存在するかを判定
-            const editor = document.querySelector(
-                "#content-editable:not([hidden]), #content-editable-mobile:not([hidden])"
-            );
-
-            if (!editor) return;
-
-            const count = countPlainTextCharacters(editor);
-            const counter = document.getElementById("char-counter");
-            if (counter) {
-                counter.textContent = `${count}文字`;
-            }
-        }
-
-        document.addEventListener("DOMContentLoaded", () => {
-            updateCharCounter();
-        });
-
         // 選択状態とフォーカス状態の変更を監視
+        let debounceTimer = null;
+        let formatStateTimer = null;
+
         document.addEventListener('selectionchange', function() {
-            const selection = window.getSelection();
-            if (selection.rangeCount > 0) {
-                updateFormatStates();
+            if (!blazorConnected) return;
+
+            // 前のタイマーをクリア
+            if (debounceTimer) {
+                clearTimeout(debounceTimer);
             }
+
+            // 100ms後に実行
+            debounceTimer = setTimeout(function() {
+                if (!blazorConnected) return;
+
+                const selection = window.getSelection();
+                if (selection.rangeCount > 0) {
+                    updateFormatStates();
+
+                    // ルビボタンの状態をチェック
+                    const activeElement = document.activeElement;
+                    if (activeElement && (activeElement.id === 'content-editable' || activeElement.id === 'content-editable-mobile')) {
+                        try {
+                            const isMixed = window.isMixedRubySelection(activeElement.id);
+                            // C#側に通知
+                            window.dispatchEvent(new CustomEvent('rubyButtonStateChanged', {
+                                detail: { disabled: isMixed }
+                            }));
+                        } catch (e) {
+                            console.warn('Selection check failed:', e);
+                        }
+                    }
+                }
+            }, 100);
         });
 
         function updateFormatStates() {
+            if (!blazorConnected) return;
+
             const selection = window.getSelection();
             if (selection.rangeCount === 0) return;
 
             const range = selection.getRangeAt(0);
 
             if (selection.isCollapsed) {
-                // カーソル位置の書式を確認
                 const node = range.startContainer;
                 const parentElement = node.nodeType === 3 ? node.parentElement : node;
 
-                // 親要素を辿って書式を確認
                 currentFormat.bold = hasParentTag(parentElement, 'B') || hasParentTag(parentElement, 'STRONG');
                 currentFormat.italic = hasParentTag(parentElement, 'I') || hasParentTag(parentElement, 'EM');
                 currentFormat.underline = hasParentTag(parentElement, 'U');
                 notifyFormatStates();
             } else {
-                // 選択範囲の書式を確認
                 const parentElement = range.commonAncestorContainer.nodeType === 3
                     ? range.commonAncestorContainer.parentElement
                     : range.commonAncestorContainer;
@@ -1717,9 +2086,24 @@
         }
 
         function notifyFormatStates() {
-            window.dispatchEvent(new CustomEvent('formatStateChanged', {
-                detail: currentFormat
-            }));
+            if (!blazorConnected) return;
+
+            // debounceでまとめて送信
+            if (formatStateTimer) {
+                clearTimeout(formatStateTimer);
+            }
+
+            formatStateTimer = setTimeout(function() {
+                if (!blazorConnected) return;
+
+                try {
+                    window.dispatchEvent(new CustomEvent('formatStateChanged', {
+                        detail: currentFormat
+                    }));
+                } catch (e) {
+                    console.warn('Format state notification failed:', e);
+                }
+            }, 50);
         }
 
         window.toggleFormat = function(elementId, format, isActive) {
@@ -2052,8 +2436,6 @@
                     selection.addRange(range);
                 }
             }
-
-            updateCharCounter();
             savedSelection = null;
         };
 
@@ -2124,7 +2506,6 @@
                     selection.addRange(newRange);
                 }
             }
-            updateCharCounter();
             savedSelection = null;
         };
 
@@ -2192,7 +2573,6 @@
 
                 element.focus();
             }
-            updateCharCounter();
             savedSelection = null;
         };
 
@@ -2498,7 +2878,6 @@
 
                 ruby.remove();
             });
-            updateCharCounter();
         });
 
         // キーボード入力でのruby削除処理を追加
