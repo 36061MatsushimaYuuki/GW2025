@@ -581,6 +581,12 @@
         font-size: 14px;
     }
 
+        .modal-input:read-only {
+            background-color: #f0f0f0;
+            color: #999;
+            cursor: not-allowed;
+        }
+
     .modal-buttons {
         display: flex;
         gap: 10px;
@@ -694,6 +700,13 @@
         .sidebar.collapsed {
             margin-left: 0;
             width: 300px;
+        }
+
+        .color-picker-dropdown {
+            right: 0;
+            left: auto;
+            min-width: 280px;
+            max-width: calc(100vw - 20px);
         }
     }
 
@@ -828,7 +841,11 @@
                 <div class="modal-body">
                     <div class="modal-section">
                         <label style="display: block; margin-bottom: 5px; font-weight: bold;">テキスト</label>
-                        <input type="text" class="modal-input" @bind="_rubyBase" placeholder="漢字など" readonly="@(_hasSelectedText && !_isEditingRuby)" />
+                        <input type="text"
+                               class="modal-input"
+                               @bind="_rubyBase"
+                               placeholder="漢字など"
+                               readonly="@(_hasSelectedText || _isEditingRuby)" />
                     </div>
                     <div class="modal-section">
                         <label style="display: block; margin-bottom: 5px; font-weight: bold;">ルビ</label>
@@ -2485,7 +2502,7 @@
                 // テキストが選択されている場合
                 document.execCommand(format, false, null);
 
-                // 選択を解除して書式をリセット
+                // 選択を解除するが、書式状態は変更しない（チカチカ防止）
                 setTimeout(() => {
                     if (selection.rangeCount > 0) {
                         const range = selection.getRangeAt(0);
@@ -2493,9 +2510,6 @@
                         selection.removeAllRanges();
                         selection.addRange(range);
                     }
-                    // 書式状態を明示的にオフ
-                    currentFormat[format] = false;
-                    notifyFormatStates();
                     element.scrollTop = scrollTop;
                 }, 10);
             } else {
@@ -3413,7 +3427,39 @@
 
                 ruby.remove();
             });
+
+            // 空の書式タグを削除
+            cleanupEmptyFormatTags(target);
         });
+
+        // 空の書式タグを削除する関数を修正
+        function cleanupEmptyFormatTags(element) {
+            const formatTags = ['B', 'STRONG', 'I', 'EM', 'U'];
+
+            formatTags.forEach(tagName => {
+                const tags = element.querySelectorAll(tagName.toLowerCase());
+                tags.forEach(tag => {
+                    // テキストコンテンツを取得（ゼロ幅スペースを除く）
+                    const text = tag.textContent.replace(/\u200B/g, '').trim();
+
+                    // 空の場合、または子要素がなくゼロ幅スペースのみの場合は削除
+                    if (!text || (tag.childNodes.length === 1 && tag.textContent === '\u200B')) {
+                        // 前後のゼロ幅スペースも削除
+                        const prevNode = tag.previousSibling;
+                        const nextNode = tag.nextSibling;
+
+                        if (prevNode && prevNode.nodeType === 3 && prevNode.textContent === '\u200B') {
+                            prevNode.remove();
+                        }
+                        if (nextNode && nextNode.nodeType === 3 && nextNode.textContent === '\u200B') {
+                            nextNode.remove();
+                        }
+
+                        tag.remove();
+                    }
+                });
+            });
+        }
 
         // キーボード入力でのruby削除処理を追加
         document.addEventListener('keydown', function(e) {
