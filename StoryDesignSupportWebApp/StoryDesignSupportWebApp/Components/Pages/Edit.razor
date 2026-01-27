@@ -9,11 +9,13 @@
 @using StoryDesignSupportWebApp.Data
 @using StoryDesignSupportWebApp.Data.EditData
 @using System.Text.Json
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
 @inject UserManager<ApplicationUser> UserManager
 @inject IDbContextFactory<ApplicationDbContext> DbFactory
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject IJSRuntime JSRuntime
+@inject ProtectedSessionStorage SessionStorage
 
 <PageTitle>Project Edit</PageTitle>
 
@@ -32,7 +34,7 @@
         display: flex;
         height: calc(100vh - 5.5rem);
         overflow: hidden;
-        max-width: 97vw;
+        max-width: 100vw;
         transition: height 0.3s ease;
     }
 
@@ -163,6 +165,9 @@
     .toggle-icon {
         margin-right: 10px;
         font-size: 12px;
+        display: inline-block;
+        width: 12px;
+        text-align: center;
     }
 
     .add-section-btn {
@@ -285,6 +290,9 @@
         cursor: pointer;
         font-size: 14px;
         transition: background-color 0.2s;
+        min-width: 36px;
+        width: max-content;
+        max-height: 36px;
     }
 
         .toolbar-btn:hover {
@@ -911,7 +919,8 @@
                             var chapter = _project.ProjectDataObject.Scenario.chapters[i];
                             <div class="chapter-item" @key="@($"chapter-{chapterIndex}")">
                                 <div class="chapter-header">
-                                    <span class="toggle-icon" @onclick="() => ToggleChapter(chapterIndex)">
+                                    <span class="toggle-icon" @onclick="() => ToggleChapter(chapterIndex)"
+                                          style="@(_expandedChapters.Contains(chapterIndex) ? "font-size: 15px; margin-left: -2px; margin-right: 12px;" : "font-size: 12px; margin-left: 0; margin-right: 10px;")">
                                         @(_expandedChapters.Contains(chapterIndex) ? "▼" : "▶")
                                     </span>
                                     <span class="chapter-title" @onclick="() => ToggleChapter(chapterIndex)">
@@ -1034,6 +1043,11 @@
                     <div class="toolbar-separator"></div>
                     <button class="toolbar-btn" @onclick="ShowRubyModal" title="ルビ" disabled="@_isRubyButtonDisabled">ルビ</button>
                     <div class="toolbar-separator"></div>
+                    <button class="toolbar-btn" @onclick="InsertQuotes" title="かぎかっこ">｢｣</button>
+                    <button class="toolbar-btn" @onclick='() => InsertText("…")' title="三点リーダー">…</button>
+                    <button class="toolbar-btn" @onclick='() => InsertText(" ")' title="半角スペース" style="font-weight: bold">␣</button>
+                    <button class="toolbar-btn" @onclick='() => InsertText("—")' title="ダッシュ">―</button>
+                    <div class="toolbar-separator"></div>
                     <button class="toolbar-btn" @onclick="ClearFormat" title="書式をクリア">✕ クリア</button>
                 </div>
 
@@ -1135,6 +1149,11 @@
                         <div class="toolbar-separator"></div>
                         <button class="toolbar-btn" @onclick="ShowRubyModal" title="ルビ" disabled="@_isRubyButtonDisabled">ルビ</button>
                         <div class="toolbar-separator"></div>
+                        <button class="toolbar-btn" @onclick="InsertQuotes" title="かぎかっこ">｢｣</button>
+                        <button class="toolbar-btn" @onclick='() => InsertText("…")' title="三点リーダー">…</button>
+                        <button class="toolbar-btn" @onclick='() => InsertText(" ")' title="半角スペース" style="font-weight: bold">␣</button>
+                        <button class="toolbar-btn" @onclick='() => InsertText("—")' title="ダッシュ">―</button>
+                        <div class="toolbar-separator"></div>
                         <button class="toolbar-btn" @onclick="ClearFormat" style="font-size: 11px;">✕</button>
                     </div>
 
@@ -1164,7 +1183,8 @@
                         var chapter = _project.ProjectDataObject.Scenario.chapters[i];
                         <div class="chapter-item" @key="@($"mobile-chapter-{chapterIndex}")">
                             <div class="chapter-header">
-                                <span class="toggle-icon" @onclick="() => ToggleChapter(chapterIndex)">
+                                <span class="toggle-icon" @onclick="() => ToggleChapter(chapterIndex)"
+                                      style="@(_expandedChapters.Contains(chapterIndex) ? "font-size: 15px; margin-left: -2px; margin-right: 12px;" : "font-size: 12px; margin-left: 0; margin-right: 10px;")">
                                     @(_expandedChapters.Contains(chapterIndex) ? "▼" : "▶")
                                 </span>
                                 <span class="chapter-title" @onclick="() => ToggleChapter(chapterIndex)">
@@ -1207,7 +1227,8 @@
     public int id { get; set; }
 
     private Project? _project;
-    private bool _showCategoryView = true;
+    private bool _showCategoryView = false;
+    private bool _hasCheckedSessionStorage = false;
     private string _currentCategory = "writing";
     private HashSet<int> _expandedChapters = new HashSet<int>();
     private int _selectedChapter = -1;
@@ -1276,6 +1297,21 @@
         if (firstRender) {
             try {
                 await JSRuntime.InvokeVoidAsync("initializeEditorEventListeners", _instanceId);
+                await JSRuntime.InvokeVoidAsync("setupInputUndoTracking");
+
+                // SessionStorageから遷移元を確認
+                if (!_hasCheckedSessionStorage) {
+                    var result = await SessionStorage.GetAsync<bool>("fromProjectsList");
+                    if (result.Success && result.Value) {
+                        _showCategoryView = false;
+                        // フラグをクリア
+                        await SessionStorage.DeleteAsync("fromProjectsList");
+                    } else {
+                        _showCategoryView = true;
+                    }
+                    _hasCheckedSessionStorage = true;
+                    StateHasChanged();
+                }
             }
             catch (Exception ex) {
                 Console.WriteLine($"JavaScript initialization error: {ex.Message}");
@@ -2024,6 +2060,16 @@
         CloseRubyModal();
     }
 
+    private async Task InsertText(string text) {
+        var elementId = _mobileShowEditor ? "content-editable-mobile" : "content-editable";
+        await JSRuntime.InvokeVoidAsync("insertTextAtCursor", elementId, text);
+    }
+
+    private async Task InsertQuotes() {
+        var elementId = _mobileShowEditor ? "content-editable-mobile" : "content-editable";
+        await JSRuntime.InvokeVoidAsync("insertQuotesAtCursor", elementId);
+    }
+
     [JSInvokable("OnWindowResize")]
     public static async Task OnWindowResize(string instanceId, int width) {
         if (!_instances.TryGetValue(instanceId, out var instance)) return;
@@ -2173,6 +2219,8 @@
         let undoStack = [];
         let redoStack = [];
         const MAX_UNDO_STACK = 100;
+        let inputTimeout = null;
+        let lastSavedContent = {};
 
         function saveUndoState(elementId) {
             const element = document.getElementById(elementId);
@@ -2188,6 +2236,8 @@
                 undoStack.shift();
             }
             redoStack = []; // 新しい操作でredoスタックをクリア
+
+            lastSavedContent[elementId] = element.innerHTML;
         }
 
         function saveSelectionState(element) {
@@ -2790,6 +2840,82 @@
             }
 
             element.scrollTop = scrollTop;
+        };
+
+        window.insertTextAtCursor = function(elementId, text) {
+            const element = document.getElementById(elementId);
+            if (!element) return;
+
+            saveUndoState(elementId);
+
+            element.focus();
+            const selection = window.getSelection();
+            if (selection.rangeCount === 0) return;
+
+            const range = selection.getRangeAt(0);
+
+            // 半角スペースの場合は特別処理
+            if (text === ' ') {
+                // ノーブレークスペース(&nbsp;)を使用
+                const textNode = document.createTextNode('\u00A0');
+
+                range.deleteContents();
+                range.insertNode(textNode);
+
+                // カーソルを挿入したテキストの後ろに移動
+                range.setStartAfter(textNode);
+                range.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(range);
+            } else {
+                const textNode = document.createTextNode(text);
+
+                range.deleteContents();
+                range.insertNode(textNode);
+
+                // カーソルを挿入したテキストの後ろに移動
+                range.setStartAfter(textNode);
+                range.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(range);
+            }
+        };
+
+        window.insertQuotesAtCursor = function(elementId) {
+            const element = document.getElementById(elementId);
+            if (!element) return;
+
+            saveUndoState(elementId);
+
+            element.focus();
+            const selection = window.getSelection();
+            if (selection.rangeCount === 0) return;
+
+            const range = selection.getRangeAt(0);
+
+            if (!selection.isCollapsed) {
+                // 選択範囲がある場合
+                const selectedContent = range.extractContents();
+                const fragment = document.createDocumentFragment();
+
+                fragment.appendChild(document.createTextNode('「'));
+                fragment.appendChild(selectedContent);
+                fragment.appendChild(document.createTextNode('」'));
+
+                range.insertNode(fragment);
+                range.collapse(false);
+            } else {
+                // 選択範囲がない場合
+                const textNode = document.createTextNode('「」');
+                range.insertNode(textNode);
+
+                // カーソルを「」の間に移動
+                range.setStart(textNode, 1);
+                range.collapse(true);
+            }
+
+            selection.removeAllRanges();
+            selection.addRange(range);
         };
 
         window.applyBlockFormat = function(elementId, format) {
@@ -3540,6 +3666,76 @@
                 });
             });
         }
+
+        // テキスト入力時のUndoスタック管理
+        window.setupInputUndoTracking = function() {
+            // イベントリスナーが既に設定されている場合は何もしない
+            if (window.inputUndoTrackingInitialized) return;
+            window.inputUndoTrackingInitialized = true;
+
+            document.addEventListener('input', function(e) {
+                const target = e.target;
+                
+                // content-editableまたはcontent-editable-mobile内の入力か確認
+                if (target.id !== 'content-editable' && target.id !== 'content-editable-mobile') {
+                    return;
+                }
+
+                const elementId = target.id;
+                
+                // 初期状態を保存（初回のみ）
+                if (!lastSavedContent[elementId]) {
+                    lastSavedContent[elementId] = target.innerHTML;
+                }
+
+                // inputイベント発生時、タイマーをリセット
+                if (inputTimeout) {
+                    clearTimeout(inputTimeout);
+                }
+
+                // 1秒間入力がなければUndoスタックに保存
+                inputTimeout = setTimeout(function() {
+                    const currentContent = target.innerHTML;
+                    
+                    // 内容が変わっている場合のみ保存
+                    if (lastSavedContent[elementId] !== currentContent) {
+                        // 現在の状態を保存する前に、前の状態をUndoスタックに追加
+                        const state = {
+                            html: lastSavedContent[elementId],
+                            selection: saveSelectionState(target)
+                        };
+
+                        undoStack.push(state);
+                        if (undoStack.length > MAX_UNDO_STACK) {
+                            undoStack.shift();
+                        }
+                        redoStack = []; // 新しい入力でredoスタックをクリア
+                        
+                        lastSavedContent[elementId] = currentContent;
+                    }
+                }, 1000); // 1秒のディレイ
+            }, true); // キャプチャフェーズで実行
+
+            // キーボードショートカット (Ctrl+Z, Ctrl+Y)
+            document.addEventListener('keydown', function(e) {
+                const target = e.target;
+                
+                // content-editableまたはcontent-editable-mobile内の入力か確認
+                if (target.id !== 'content-editable' && target.id !== 'content-editable-mobile') {
+                    return;
+                }
+
+                const elementId = target.id;
+                
+                if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                    e.preventDefault();
+                    window.undoEditor(elementId);
+                } else if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+                    e.preventDefault();
+                    window.redoEditor(elementId);
+                }
+            }, true); // キャプチャフェーズで実行
+        };
 
         // キーボード入力でのruby削除処理を追加
         document.addEventListener('keydown', function(e) {

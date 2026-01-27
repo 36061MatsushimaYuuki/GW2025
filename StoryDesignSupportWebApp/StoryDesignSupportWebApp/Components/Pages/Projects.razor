@@ -7,10 +7,12 @@
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.EntityFrameworkCore
 @using StoryDesignSupportWebApp.Data
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
 @inject UserManager<ApplicationUser> UserManager
 @inject ApplicationDbContext Db
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ProtectedSessionStorage SessionStorage
 
 <PageTitle>Projects</PageTitle>
 
@@ -1229,7 +1231,9 @@
         CloseModal();
     }
 
-    private void NavigateToEdit(int id) {
+    private async Task NavigateToEdit(int id) {
+        // フラグを設定
+        await SessionStorage.SetAsync("fromProjectsList", true);
         Nav.NavigateTo($"/projects/edit/{id}");
     }
 
